@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Environment variables (mantener solo los .example)
+.env
+.env.local
+.env*.local
+apps/**/.env
+apps/**/.env.local
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
