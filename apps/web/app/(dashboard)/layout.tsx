@@ -1,31 +1,53 @@
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
+import { LogOut } from 'lucide-react';
 import DashboardNav from '@/components/dashboard-nav';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { Button } from '@/components/ui/button';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session) redirect('/login');
 
+  const email = session.user?.email ?? '';
+  const initials = email.slice(0, 2).toUpperCase() || 'AD';
+
   return (
-    <div className="flex h-screen bg-gray-50">
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-6 border-b border-gray-200">
+    <div className="flex h-screen bg-muted/40">
+      <aside className="w-64 bg-card border-r flex flex-col">
+        {/* Branding */}
+        <div className="p-5 border-b">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">R</span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-indigo-600 text-primary-foreground shadow-sm">
+              <span className="text-sm font-bold">R</span>
             </div>
             <div>
-              <p className="font-bold text-gray-900 text-sm">miReclamo</p>
-              <p className="text-xs text-gray-500">Municipalidad</p>
+              <p className="text-sm font-bold leading-tight">miReclamo</p>
+              <p className="text-xs text-muted-foreground">Municipalidad</p>
             </div>
           </div>
         </div>
 
-        <DashboardNav />
+        {/* Navegación */}
+        <div className="flex-1 overflow-y-auto py-4">
+          <p className="px-7 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+            Menú
+          </p>
+          <DashboardNav />
+        </div>
 
-        <div className="p-4 border-t border-gray-200 mt-auto">
-          <p className="text-xs text-gray-500 truncate mb-2">{session.user?.email}</p>
+        {/* Usuario */}
+        <div className="border-t p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{session.user?.name ?? 'Administrador'}</p>
+              <p className="truncate text-xs text-muted-foreground">{email}</p>
+            </div>
+            <ThemeToggle />
+          </div>
           <form
             action={async () => {
               'use server';
@@ -33,19 +55,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
               await signOut({ redirectTo: '/login' });
             }}
           >
-            <button
-              type="submit"
-              className="w-full text-left text-sm text-gray-600 hover:text-gray-900 transition"
-            >
+            <Button type="submit" variant="outline" size="sm" className="w-full justify-start gap-2">
+              <LogOut className="h-4 w-4" />
               Cerrar sesión
-            </button>
+            </Button>
           </form>
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
+      <main className="flex-1 overflow-auto">{children}</main>
     </div>
   );
 }

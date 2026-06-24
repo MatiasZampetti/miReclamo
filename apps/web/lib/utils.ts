@@ -13,10 +13,18 @@ export const STATUS_LABELS: Record<string, string> = {
 };
 
 export const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  in_progress: 'bg-blue-100 text-blue-800',
-  resolved: 'bg-green-100 text-green-800',
-  rejected: 'bg-red-100 text-red-800',
+  pending: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-400',
+  in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-400',
+  resolved: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-400',
+  rejected: 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-400',
+};
+
+// Color sólido (para barras de progreso, botones de acción, etc.)
+export const STATUS_BAR_COLORS: Record<string, string> = {
+  pending: 'bg-amber-500',
+  in_progress: 'bg-blue-500',
+  resolved: 'bg-emerald-500',
+  rejected: 'bg-red-500',
 };
 
 export function formatDate(iso: string): string {
