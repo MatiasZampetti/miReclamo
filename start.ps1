@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 #  miReclamo — Script de arranque completo
 #  Uso: click derecho → "Ejecutar con PowerShell"
 #       o desde terminal: .\start.ps1
@@ -93,3 +93,4 @@ Write-Host ""
 
 # Mantener la ventana abierta
 Read-Host "   Presioná ENTER para cerrar esta ventana"
+

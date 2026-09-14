@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { GradientHeading } from '@/components/ui/gradient-heading';
 import { ThemeToggle } from '@/components/theme-toggle';
 import GradientAnimation from '@/components/ui/bg-animated-gradient';
+import { Logo } from '@/components/logo';
 
 const GRADIENTS = [
   {
@@ -74,7 +75,7 @@ export default function LoginPage() {
       setError('Email o contraseña incorrectos');
       setLoading(false);
     } else {
-      router.push('/complaints');
+      router.push('/map');
     }
   }
 
@@ -87,9 +88,7 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-black/20" />
 
         <div className="relative z-10 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm ring-1 ring-white/25">
-            <span className="text-xl font-bold">R</span>
-          </div>
+          <Logo size={44} />
           <span className="text-lg font-semibold tracking-tight">miReclamo</span>
         </div>
 
@@ -139,9 +138,7 @@ export default function LoginPage() {
 
         <div className="relative z-10 w-full max-w-sm">
           <div className="mb-8 text-center lg:text-left">
-            <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm lg:hidden">
-              <span className="text-xl font-bold">R</span>
-            </div>
+            <Logo size={48} className="mb-4 inline-flex rounded-2xl lg:hidden" />
             <h1 className="text-2xl font-bold tracking-tight">Bienvenido de nuevo</h1>
             <p className="mt-1 text-sm text-muted-foreground">Ingresá tus credenciales para continuar</p>
           </div>

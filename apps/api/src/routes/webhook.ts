@@ -1,6 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { env } from '../config/env.js';
 import { handleIncomingMessage } from '../services/ai/agent.js';
+import { getConversationMode, recordInbound } from '../services/conversation-mode.js';
+import { getOrCreateSession, saveMessage } from '../services/sessions.js';
+import { isBlocked } from '../services/moderation.js';
 
 export async function webhookRoutes(app: FastifyInstance) {
   app.post('/twilio', async (request, reply) => {
@@ -17,7 +20,7 @@ export async function webhookRoutes(app: FastifyInstance) {
 
     // Procesar el mensaje de forma asíncrona
     setImmediate(() => {
-      handleIncomingMessage(env.DEFAULT_TENANT_ID, phoneNumber, userMessage).catch((err) => {
+      routeIncoming(env.DEFAULT_TENANT_ID, phoneNumber, userMessage).catch((err) => {
         app.log.error({ err }, 'Error procesando mensaje de WhatsApp');
       });
     });
@@ -27,4 +30,48 @@ export async function webhookRoutes(app: FastifyInstance) {
   app.get('/twilio', async (_request, reply) => {
     reply.status(200).send('OK');
   });
+
+  /**
+   * Decide quién atiende el mensaje entrante.
+   * Si un admin tomó la conversación, el agente IA no interviene: el mensaje
+   * se guarda en el hilo y espera respuesta humana desde el panel.
+   */
+  async function routeIncoming(
+    tenantId: string,
+    phoneNumber: string,
+    userMessage: string,
+  ): Promise<void> {
+    // El estado de toma de control es accesorio: si su tabla falla (migración
+    // sin aplicar, base caída), el vecino igual tiene que ser atendido por la
+    // IA en vez de quedarse sin respuesta. Por eso se degrada a modo agente.
+    let conversation = null;
+    try {
+      // Reinicia la ventana de 24 h de WhatsApp en ambos modos
+      await recordInbound(tenantId, phoneNumber);
+      conversation = await getConversationMode(tenantId, phoneNumber);
+    } catch (err) {
+      app.log.error({ err, phoneNumber }, 'No se pudo leer el modo; se atiende con el agente IA');
+    }
+
+    // Un número bloqueado se descarta antes de todo: no llega a la IA, no
+    // consume tokens y no recibe respuesta. Ya se le avisó al bloquearlo;
+    // seguir contestándole convertiría el bloqueo en una conversación.
+    if (isBlocked(conversation)) {
+      app.log.info({ phoneNumber }, 'Mensaje descartado: número bloqueado');
+      return;
+    }
+
+    if (conversation?.mode === 'human') {
+      // El hilo al que se engancha es el del reclamo desde el que se tomó
+      // la conversación; si se borró, se cae a la sesión activa del teléfono.
+      const sessionId =
+        conversation.session_id ?? (await getOrCreateSession(tenantId, phoneNumber)).id;
+
+      await saveMessage(sessionId, tenantId, 'user', userMessage);
+      app.log.info({ phoneNumber }, 'Mensaje recibido en modo humano: el agente no responde');
+      return;
+    }
+
+    await handleIncomingMessage(tenantId, phoneNumber, userMessage);
+  }
 }

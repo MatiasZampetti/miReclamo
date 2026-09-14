@@ -1,5 +1,5 @@
 import { supabase } from './supabase.js';
-import type { Session, SessionContext } from '../types/index.js';
+import type { Session, SessionContext, MessageRole } from '../types/index.js';
 
 const DEFAULT_CONTEXT: SessionContext = {
   state: 'greeting',
@@ -54,8 +54,15 @@ export async function completeSession(sessionId: string): Promise<void> {
 export async function saveMessage(
   sessionId: string,
   tenantId: string,
-  role: 'user' | 'assistant',
+  role: MessageRole,
   content: string,
+  sentBy?: string | null,
 ): Promise<void> {
-  await supabase.from('messages').insert({ session_id: sessionId, tenant_id: tenantId, role, content });
+  await supabase.from('messages').insert({
+    session_id: sessionId,
+    tenant_id: tenantId,
+    role,
+    content,
+    sent_by: sentBy ?? null,
+  });
 }

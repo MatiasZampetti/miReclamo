@@ -79,3 +79,73 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ============================================
+   Mapa de reclamos (Leaflet)
+
+   IMPORTANTE: leaflet.css se importa dentro del componente del mapa, así que
+   Next lo inyecta DESPUÉS de este archivo. Sus reglas por defecto
+   (.leaflet-popup-content-wrapper { background: white; color: #333 })
+   tienen la misma especificidad que las nuestras y ganarían por orden.
+   Por eso todo acá va anidado bajo .leaflet-container: dos clases le ganan
+   a una sin necesidad de !important.
+   ============================================ */
+.leaflet-container {
+  font-family: inherit;
+  background: hsl(var(--muted));
+}
+
+/* Los tiles de OSM son claros: en modo oscuro los invertimos para que el
+   mapa no queme la pantalla. Solo afecta a los tiles, no a los círculos. */
+.dark .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9) saturate(0.75);
+}
+
+/* Popup con el mismo lenguaje visual que las Card del panel */
+.leaflet-container .leaflet-popup-content-wrapper {
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px -10px rgb(0 0 0 / 0.35);
+  padding: 0;
+}
+.leaflet-container .leaflet-popup-content {
+  margin: 0.875rem;
+  line-height: 1.45;
+  color: hsl(var(--popover-foreground));
+}
+.leaflet-container .leaflet-popup-tip {
+  background: hsl(var(--popover));
+  border: 1px solid hsl(var(--border));
+  box-shadow: none;
+}
+.leaflet-container a.leaflet-popup-close-button {
+  color: hsl(var(--muted-foreground));
+  padding: 6px 6px 0 0;
+}
+.leaflet-container a.leaflet-popup-close-button:hover {
+  color: hsl(var(--foreground));
+  background: transparent;
+}
+
+/* Controles de zoom y atribución */
+.leaflet-container .leaflet-bar a,
+.leaflet-container .leaflet-control-attribution {
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+.leaflet-container .leaflet-bar a:hover {
+  background: hsl(var(--accent));
+  color: hsl(var(--foreground));
+}
+.leaflet-container .leaflet-control-attribution a {
+  color: hsl(var(--primary));
+}
+
+/* El círculo enfocado por teclado no debe perder el anillo de foco */
+.leaflet-container .leaflet-interactive:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}

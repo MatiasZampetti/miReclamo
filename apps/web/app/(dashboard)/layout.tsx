@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import DashboardNav from '@/components/dashboard-nav';
+import { Logo } from '@/components/logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 
@@ -18,9 +19,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         {/* Branding */}
         <div className="p-5 border-b">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-indigo-600 text-primary-foreground shadow-sm">
-              <span className="text-sm font-bold">R</span>
-            </div>
+            <Logo size={40} />
             <div>
               <p className="text-sm font-bold leading-tight">miReclamo</p>
               <p className="text-xs text-muted-foreground">Municipalidad</p>
@@ -30,9 +29,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
         {/* Navegación */}
         <div className="flex-1 overflow-y-auto py-4">
-          <p className="px-7 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-            Menú
-          </p>
           <DashboardNav />
         </div>
 

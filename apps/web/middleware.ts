@@ -10,10 +10,13 @@ export default auth((req) => {
   }
 
   if (isLoggedIn && isLoginPage) {
-    return NextResponse.redirect(new URL('/complaints', req.url));
+    return NextResponse.redirect(new URL('/map', req.url));
   }
 });
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  // Todo menos: rutas de API, internos de Next y archivos estáticos (cualquier ruta
+  // con extensión). Sin esta última exclusión el middleware redirige /logo.png al
+  // login y las imágenes se rompen para usuarios no autenticados.
+  matcher: ['/((?!api|_next|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|txt|xml|webmanifest)$).*)'],
 };

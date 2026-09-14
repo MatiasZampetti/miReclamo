@@ -83,7 +83,9 @@ declare module 'next-auth' {
   }
 }
 
-declare module 'next-auth/jwt' {
+// next-auth v5 reexporta el tipo JWT desde @auth/core/jwt sin declararlo propio,
+// así que la augmentation tiene que apuntar al módulo original.
+declare module '@auth/core/jwt' {
   interface JWT {
     accessToken?: string;
     role?: string;

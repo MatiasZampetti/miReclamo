@@ -6,7 +6,10 @@ async function apiFetch<T>(
 ): Promise<T> {
   const { token, ...init } = options;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    // Solo se declara el content-type si realmente va un cuerpo: Fastify
+    // rechaza con 400 (FST_ERR_CTP_EMPTY_JSON_BODY) un POST que anuncia JSON
+    // pero llega vacío, como takeover/release/geocode.
+    ...(init.body ? { 'Content-Type': 'application/json' } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(init.headers as Record<string, string> ?? {}),
   };
@@ -34,6 +37,12 @@ export interface ComplaintFilters {
   to?: string;
   page?: number;
   limit?: number;
+}
+
+export interface MapFilters {
+  status?: string;
+  category_id?: string;
+  urgency?: string;
 }
 
 export const api = {
@@ -65,6 +74,38 @@ export const api = {
         body: JSON.stringify({ status, status_note: note }),
         token,
       }),
+    map: (filters: MapFilters, token: string) => {
+      const params = new URLSearchParams();
+      if (filters.status) params.set('status', filters.status);
+      if (filters.category_id) params.set('category_id', filters.category_id);
+      if (filters.urgency) params.set('urgency', filters.urgency);
+      return apiFetch<MapResponse>(`/api/complaints/map?${params}`, { token });
+    },
+    updateUrgency: (id: string, urgency: string, token: string) =>
+      apiFetch<Complaint>(`/api/complaints/${id}/urgency`, {
+        method: 'PATCH',
+        body: JSON.stringify({ urgency }),
+        token,
+      }),
+    geocode: (id: string, token: string) =>
+      apiFetch<Complaint>(`/api/complaints/${id}/geocode`, { method: 'POST', token }),
+    conversation: (id: string, token: string) =>
+      apiFetch<ConversationState>(`/api/complaints/${id}/conversation`, { token }),
+    takeover: (id: string, token: string) =>
+      apiFetch<ConversationState>(`/api/complaints/${id}/takeover`, { method: 'POST', token }),
+    release: (id: string, token: string) =>
+      apiFetch<ConversationState>(`/api/complaints/${id}/release`, { method: 'POST', token }),
+    unblock: (id: string, token: string) =>
+      apiFetch<ConversationState>(`/api/complaints/${id}/unblock`, { method: 'POST', token }),
+    reply: (id: string, content: string, token: string) =>
+      apiFetch<{ ok: true; sent_at: string }>(`/api/complaints/${id}/reply`, {
+        method: 'POST',
+        body: JSON.stringify({ content }),
+        token,
+      }),
+  },
+  tenant: {
+    mapConfig: (token: string) => apiFetch<MapConfig>('/api/tenant/map-config', { token }),
   },
   categories: {
     list: (token: string) =>
@@ -101,6 +142,36 @@ export const api = {
 };
 
 // Tipos compartidos con el frontend
+export type UrgencyLevel = 'high' | 'medium' | 'low';
+export type GeocodeStatus = 'pending' | 'ok' | 'not_found' | 'error';
+
+/** Payload liviano que consume el mapa: solo lo que se dibuja y se muestra en el popup. */
+export interface MapComplaint {
+  id: string;
+  summary: string;
+  location: string | null;
+  status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+  urgency: UrgencyLevel | null;
+  latitude: number;
+  longitude: number;
+  created_at: string;
+  complainant_name: string | null;
+  category?: { id: string; name: string } | null;
+}
+
+export interface MapResponse {
+  data: MapComplaint[];
+  /** Reclamos que no se pudieron ubicar (sin dirección o sin geocodificar) */
+  unmapped: number;
+}
+
+export interface MapConfig {
+  city: string | null;
+  center_lat: number;
+  center_lng: number;
+  default_zoom: number;
+}
+
 export interface Complaint {
   id: string;
   tenant_id: string;
@@ -114,6 +185,12 @@ export interface Complaint {
   summary: string;
   status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
   status_note: string | null;
+  urgency: UrgencyLevel | null;
+  urgency_source: 'ai' | 'manual' | null;
+  latitude: number | null;
+  longitude: number | null;
+  geocode_status: GeocodeStatus | null;
+  geocoded_label: string | null;
   ai_confidence: number | null;
   created_at: string;
   updated_at: string;
@@ -122,12 +199,31 @@ export interface Complaint {
   subcategory?: { id: string; name: string };
 }
 
+export type MessageRole = 'user' | 'assistant' | 'admin';
+export type ConversationMode = 'agent' | 'human';
+
 export interface Message {
   id: string;
   session_id: string;
-  role: 'user' | 'assistant';
+  role: MessageRole;
   content: string;
+  sent_by: string | null;
   created_at: string;
+}
+
+export interface ConversationState {
+  mode: ConversationMode;
+  taken_over_by: string | null;
+  taken_over_at: string | null;
+  last_inbound_at: string | null;
+  window_expires_at: string | null;
+  /** WhatsApp solo permite texto libre dentro de las 24 h del último entrante */
+  window_open: boolean;
+  /** Mensajes fuera de tema acumulados. Al llegar a 3 el número se bloquea. */
+  offtopic_strikes: number;
+  blocked: boolean;
+  blocked_at: string | null;
+  blocked_reason: string | null;
 }
 
 export interface Category {

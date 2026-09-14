@@ -9,6 +9,7 @@ import { webhookRoutes } from './routes/webhook.js';
 import { complaintsRoutes } from './routes/complaints.js';
 import { categoriesRoutes } from './routes/categories.js';
 import { statsRoutes } from './routes/stats.js';
+import { tenantRoutes } from './routes/tenant.js';
 
 const app = Fastify({ logger: true });
 
@@ -38,6 +39,7 @@ await app.register(webhookRoutes, { prefix: '/webhook' });
 await app.register(complaintsRoutes, { prefix: '/api/complaints' });
 await app.register(categoriesRoutes, { prefix: '/api/categories' });
 await app.register(statsRoutes, { prefix: '/api/stats' });
+await app.register(tenantRoutes, { prefix: '/api/tenant' });
 
 app.get('/health', async () => ({ status: 'ok' }));
 

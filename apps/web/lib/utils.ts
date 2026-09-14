@@ -19,6 +19,30 @@ export const STATUS_COLORS: Record<string, string> = {
   rejected: 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-400',
 };
 
+export const URGENCY_LABELS: Record<string, string> = {
+  high: 'Urgente',
+  medium: 'Media',
+  low: 'Baja',
+};
+
+export const URGENCY_COLORS: Record<string, string> = {
+  high: 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-400',
+  medium: 'bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-400',
+  low: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-500',
+};
+
+/**
+ * Color literal de cada urgencia. Leaflet dibuja sobre <canvas>/SVG y no
+ * entiende clases de Tailwind, así que los círculos del mapa necesitan el hex.
+ */
+export const URGENCY_HEX: Record<string, { fill: string; stroke: string }> = {
+  high: { fill: '#dc2626', stroke: '#7f1d1d' },   // rojo
+  medium: { fill: '#ea580c', stroke: '#7c2d12' }, // naranja
+  low: { fill: '#eab308', stroke: '#713f12' },    // amarillo
+};
+
+export const URGENCY_FALLBACK = { fill: '#94a3b8', stroke: '#334155' }; // sin clasificar
+
 // Color sólido (para barras de progreso, botones de acción, etc.)
 export const STATUS_BAR_COLORS: Record<string, string> = {
   pending: 'bg-amber-500',
