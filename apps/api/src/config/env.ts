@@ -10,6 +10,8 @@ const envSchema = z.object({
   TWILIO_WHATSAPP_NUMBER: z.string().startsWith('+'),
   JWT_SECRET: z.string().min(32),
   DEFAULT_TENANT_ID: z.string().uuid(),
+  // Origen permitido por CORS: de dónde se sirve el dashboard.
+  WEB_URL: z.string().url().default('http://localhost:3000'),
 });
 
 const result = envSchema.safeParse(process.env);

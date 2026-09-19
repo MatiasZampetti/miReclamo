@@ -4,9 +4,15 @@ import { handleIncomingMessage } from '../services/ai/agent.js';
 import { getConversationMode, recordInbound } from '../services/conversation-mode.js';
 import { getOrCreateSession, saveMessage } from '../services/sessions.js';
 import { isBlocked } from '../services/moderation.js';
+import { verifyTwilioSignature } from '../middleware/twilio-verify.js';
 
 export async function webhookRoutes(app: FastifyInstance) {
-  app.post('/twilio', async (request, reply) => {
+  // El límite es por IP y Twilio reparte su tráfico entre pocas IPs, así que se
+  // deja holgado: quien filtra los pedidos falsos es la firma, no este techo.
+  app.post('/twilio', {
+    preHandler: verifyTwilioSignature,
+    config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
     const body = request.body as Record<string, string>;
     const userMessage = body['Body'] ?? '';
     const from = body['From'] ?? '';

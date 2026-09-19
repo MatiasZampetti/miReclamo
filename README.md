@@ -152,7 +152,7 @@ Esto hace que la API sea **stateless** — no guarda nada en memoria, todo vive 
 ### Públicos
 | Método | Ruta | Descripción |
 |---|---|---|
-| POST | `/webhook/twilio` | Recibe mensajes entrantes de WhatsApp |
+| POST | `/webhook/twilio` | Recibe mensajes entrantes de WhatsApp. Requiere firma válida de Twilio |
 | GET | `/webhook/twilio` | Verificación del webhook (Twilio) |
 | POST | `/api/auth/login` | Login de administrador, devuelve JWT |
 | GET | `/health` | Health check del servidor |
@@ -214,6 +214,36 @@ El system prompt se construye en cada request con las categorías activas del te
 
 ---
 
+## Seguridad
+
+- **Webhook de WhatsApp**: `POST /webhook/twilio` valida la cabecera `X-Twilio-Signature`
+  antes de procesar nada (`apps/api/src/middleware/twilio-verify.ts`). Si la firma no es
+  válida responde `403` y el mensaje nunca llega al agente de IA.
+- **Proxy**: Fastify se registra con `trustProxy: true`. Es obligatorio detrás de ngrok:
+  Twilio firma sobre la URL pública `https://...`, y sin esto el server reconstruiría
+  `http://localhost` y rechazaría todos los mensajes legítimos.
+- **Rate limiting** (`@fastify/rate-limit`), contado por IP:
+
+| Ruta | Límite |
+|---|---|
+| `POST /api/auth/login` | 5 / minuto |
+| `POST /webhook/twilio` | 60 / minuto |
+| Resto de las rutas | 100 / minuto |
+
+- **RLS**: habilitado en las 8 tablas, a propósito sin policies (migración `004`). Solo la
+  API, que usa la secret key de Supabase, puede leer y escribir.
+- **Secretos**: nunca se commitean. `.env` y `.env.local` están en `.gitignore` y los
+  archivos `.example` solo llevan placeholders.
+
+### Si el webhook empieza a devolver 403
+
+Lo primero a mirar es la URL que el servidor reconstruyó: queda logueada en el warning
+`Firma de Twilio inválida`. Si no coincide con la configurada en el sandbox de Twilio
+—típico al reiniciar ngrok, que genera un dominio nuevo— hay que actualizar la URL en
+Twilio.
+
+---
+
 ## Setup inicial
 
 ### 1. Instalar dependencias
@@ -240,13 +270,14 @@ cd apps/api; node -e "import('bcryptjs').then(b => b.default.hash('admin123', 10
 ```
 PORT=3001
 SUPABASE_URL=https://xxxx.supabase.co
-SUPABASE_SERVICE_KEY=eyJ...          # Settings > API > service_role key
+SUPABASE_SERVICE_KEY=sb_secret_...    # Settings > API Keys > Secret keys
 ANTHROPIC_API_KEY=sk-ant-...         # console.anthropic.com > API Keys
 TWILIO_ACCOUNT_SID=ACxxxx            # console.twilio.com > Dashboard
 TWILIO_AUTH_TOKEN=xxxx               # console.twilio.com > Dashboard
 TWILIO_WHATSAPP_NUMBER=+14155238886  # Messaging > Try it out > Send a WhatsApp message
 JWT_SECRET=min-32-caracteres-random
 DEFAULT_TENANT_ID=00000000-0000-0000-0000-000000000001
+WEB_URL=http://localhost:3000          # origen permitido por CORS
 ```
 
 **`apps/web/.env.local`**:

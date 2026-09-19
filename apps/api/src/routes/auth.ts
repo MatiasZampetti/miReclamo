@@ -10,7 +10,10 @@ const loginSchema = z.object({
 });
 
 export async function authRoutes(app: FastifyInstance) {
-  app.post('/login', async (request, reply) => {
+  // Login es el blanco obvio de fuerza bruta: techo mucho más bajo que el global.
+  app.post('/login', {
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
     const body = loginSchema.safeParse(request.body);
     if (!body.success) {
       return reply.status(400).send({ error: 'Datos inválidos', code: 'VALIDATION_ERROR' });
