@@ -21,6 +21,18 @@ export async function getOrCreateSession(tenantId: string, phoneNumber: string):
 
   if (existing) return existing as Session;
 
+  // Una conversación que el vecino dejó colgada queda 'active' pero vencida:
+  // no se reutiliza (no pasa el filtro de expires_at) y a la vez bloquea crear
+  // otra, porque el índice idx_sessions_active admite una sola activa por
+  // número. Se la cierra como abandonada antes de abrir la nueva.
+  await supabase
+    .from('sessions')
+    .update({ status: 'abandoned' })
+    .eq('tenant_id', tenantId)
+    .eq('phone_number', phoneNumber)
+    .eq('status', 'active')
+    .lte('expires_at', new Date().toISOString());
+
   const { data: created, error } = await supabase
     .from('sessions')
     .insert({

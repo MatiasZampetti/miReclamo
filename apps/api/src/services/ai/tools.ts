@@ -1,85 +1,71 @@
-import type Anthropic from '@anthropic-ai/sdk';
+import type { ToolSpec } from './llm.js';
 
-export const complaintTools: Anthropic.Tool[] = [
+/**
+ * Definiciones cortas a propósito: las reglas de cuándo usar cada herramienta
+ * están una sola vez, en el system prompt. Repetirlas acá costaba ~900 tokens
+ * por llamada, y el plan gratuito de Groq tiene un tope de tokens por minuto.
+ */
+export const complaintTools: ToolSpec[] = [
   {
-    name: 'save_complaint',
-    description:
-      'Llamá esta herramienta cuando tengas toda la información necesaria para registrar el reclamo: categoría, descripción y ubicación.',
+    name: 'register_citizen',
+    description: 'Registra nombre y DNI del vecino. Si devuelve error, pedile que corrija el dato.',
     input_schema: {
       type: 'object',
       properties: {
-        category_id: {
-          type: 'string',
-          description: 'UUID de la categoría que corresponde al reclamo',
-        },
-        subcategory_id: {
-          type: 'string',
-          description: 'UUID de la subcategoría si aplica, de lo contrario null',
-        },
-        description: {
-          type: 'string',
-          description: 'Descripción completa del reclamo tal como lo expresó el ciudadano',
-        },
-        location: {
-          type: 'string',
-          description: 'Dirección o intersección donde ocurre el problema, extraída de la conversación',
-        },
-        summary: {
-          type: 'string',
-          description: 'Resumen del reclamo en una sola oración clara',
-        },
-        complainant_name: {
-          type: 'string',
-          description: 'Nombre del ciudadano si lo mencionó voluntariamente, de lo contrario null',
-        },
-        confidence: {
-          type: 'number',
-          description: 'Tu nivel de confianza en la clasificación, entre 0.0 y 1.0',
-        },
+        full_name: { type: 'string', description: 'Nombre y apellido tal como los escribió' },
+        dni: { type: 'string', description: 'DNI tal como lo escribió. Si ya está registrado y solo corrige el nombre, omitilo' },
+      },
+      required: ['full_name'],
+    },
+  },
+  {
+    name: 'save_complaint',
+    description: 'Guarda el reclamo. Si devuelve error, resolvé con el vecino lo que indica.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        category_id: { type: 'string', description: 'id de CATEGORÍAS DISPONIBLES' },
+        subcategory_id: { type: 'string', description: 'id de subcategoría, si aplica' },
+        description: { type: 'string', description: 'El problema, con las palabras del vecino' },
+        location: { type: 'string', description: 'Dirección, esquina o lugar conocido' },
+        summary: { type: 'string', description: 'Resumen en una oración' },
+        no_photo_reason: { type: 'string', description: 'Solo si no hay foto: por qué' },
+        confidence: { type: 'number', description: 'Confianza en la categoría, 0 a 1' },
         urgency: {
           type: 'string',
           enum: ['high', 'medium', 'low'],
           description:
-            'Grado de urgencia según el riesgo para las personas: "high" si hay peligro inmediato ' +
-            '(cables sueltos, semáforo roto, pérdida de gas, poste caído, calle intransitable), ' +
-            '"medium" si afecta la circulación o la salubridad sin peligro inmediato ' +
-            '(bache, contenedor desbordado, luminaria apagada), ' +
-            '"low" si es mantenimiento o estético (poda, pintura, pasto alto).',
+            'Riesgo para las personas. high: peligro inmediato (cables sueltos, poste caído, ' +
+            'semáforo roto, pérdida de gas). medium: afecta circulación o salubridad (bache, ' +
+            'basura, luminaria apagada). low: mantenimiento o estético (poda, pintura, pasto).',
         },
       },
       required: ['category_id', 'description', 'summary', 'confidence', 'urgency'],
     },
   },
   {
-    name: 'out_of_scope',
-    description:
-      'Llamá esta herramienta cuando el mensaje NO corresponde a un reclamo municipal que ' +
-      'esta municipalidad pueda resolver. NO la uses para saludos, agradecimientos, despedidas ' +
-      'ni para mensajes confusos donde todavía podés preguntar de qué se trata: en esos casos ' +
-      'respondé normalmente y guiá a la persona hacia el reclamo.',
+    name: 'check_complaint_status',
+    description: 'Consulta el estado de los reclamos de este vecino.',
     input_schema: {
       type: 'object',
       properties: {
-        kind: {
-          type: 'string',
-          enum: ['not_municipal', 'off_topic'],
-          description:
-            '"not_municipal": es un reclamo o problema real, pero le corresponde a otro organismo ' +
-            '(policía, bomberos, defensa civil, vialidad provincial o nacional, EPEC, empresa de ' +
-            'agua o gas, justicia). La persona actúa de buena fe, solo se equivocó de canal. ' +
-            '"off_topic": el mensaje no tiene ninguna relación con un reclamo ni con la ' +
-            'municipalidad (charla, publicidad, spam, insultos, pruebas, preguntas sin sentido).',
-        },
+        code: { type: 'string', description: 'Número de reclamo (ej. 5D26D661). Omitilo para ver los últimos.' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'out_of_scope',
+    description: 'El mensaje no es un reclamo que la municipalidad pueda resolver (ver regla 5).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', enum: ['not_municipal', 'off_topic'] },
         suggested_authority: {
           type: 'string',
-          description:
-            'Solo para "not_municipal": a qué organismo le corresponde, en lenguaje simple ' +
-            '(ej. "la policía", "la empresa de energía"). Si no lo sabés con certeza, omitilo.',
+          description: 'Solo not_municipal: organismo que corresponde (ej. "la policía")',
         },
-        reason: {
-          type: 'string',
-          description: 'En una oración, por qué queda fuera del alcance. Es para el registro interno.',
-        },
+        reason: { type: 'string', description: 'Por qué, en una oración (registro interno)' },
       },
       required: ['kind', 'reason'],
     },

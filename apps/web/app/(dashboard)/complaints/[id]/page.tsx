@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Bot, Headset, Send, Loader2, AlertTriangle, Clock, Ban, ShieldCheck,
+  UserRound, Camera, ImageOff, MapPin,
 } from 'lucide-react';
 import { api, type Complaint, type Message, type ConversationState } from '@/lib/api-client';
 import {
@@ -48,6 +49,12 @@ export default function ComplaintDetailPage() {
 
   const humano = conversation?.mode === 'human';
 
+  // Las respuestas de PATCH/geocode traen el reclamo sin el vecino ni las URLs
+  // firmadas de las fotos (solo las arma el GET): se conservan las que ya había.
+  function mergeComplaint(updated: Complaint) {
+    setComplaint((prev) => (prev ? { ...prev, ...updated } : updated));
+  }
+
   useEffect(() => {
     if (!token || !id) return;
     Promise.all([
@@ -69,12 +76,11 @@ export default function ComplaintDetailPage() {
     setConversation(conv);
   }, [token, id]);
 
-  // Mientras el admin atiende, el vecino puede escribir en cualquier momento.
-  // No hay websockets en el proyecto, así que se refresca por polling y solo
-  // durante la toma de control, para no golpear la API el resto del tiempo.
+  // El vecino puede seguir escribiendo después de registrado el reclamo (por
+  // ejemplo, para consultar el estado). No hay websockets en el proyecto, así
+  // que se refresca por polling: más seguido mientras el admin atiende.
   useEffect(() => {
-    if (!humano) return;
-    const timer = setInterval(() => { refreshChat().catch(() => {}); }, 8000);
+    const timer = setInterval(() => { refreshChat().catch(() => {}); }, humano ? 8000 : 15000);
     return () => clearInterval(timer);
   }, [humano, refreshChat]);
 
@@ -134,7 +140,7 @@ export default function ComplaintDetailPage() {
     if (!token || !complaint || newUrgency === complaint.urgency) return;
     setUpdating(true);
     try {
-      setComplaint(await api.complaints.updateUrgency(id, newUrgency, token));
+      mergeComplaint(await api.complaints.updateUrgency(id, newUrgency, token));
     } finally {
       setUpdating(false);
     }
@@ -144,8 +150,7 @@ export default function ComplaintDetailPage() {
     if (!token || !complaint) return;
     setUpdating(true);
     try {
-      const updated = await api.complaints.updateStatus(id, newStatus, statusNote || undefined, token);
-      setComplaint(updated);
+      mergeComplaint(await api.complaints.updateStatus(id, newStatus, statusNote || undefined, token));
       setStatusNote('');
     } finally {
       setUpdating(false);
@@ -190,14 +195,14 @@ export default function ComplaintDetailPage() {
               <div className="space-y-3 text-sm">
                 <InfoRow label="Categoría" value={complaint.category?.name ?? '—'} />
                 <InfoRow label="Subcategoría" value={complaint.subcategory?.name ?? '—'} />
-                <InfoRow label="Teléfono" value={complaint.phone_number} />
-                <InfoRow label="Nombre" value={complaint.complainant_name ?? 'No informado'} />
                 <InfoRow label="Ubicación" value={complaint.location ?? 'No informada'} />
                 <InfoRow
                   label="En el mapa"
                   value={
                     complaint.latitude != null
-                      ? `${complaint.latitude.toFixed(5)}, ${complaint.longitude?.toFixed(5)}`
+                      ? `${complaint.latitude.toFixed(5)}, ${complaint.longitude?.toFixed(5)}${
+                          complaint.location_source === 'whatsapp_pin' ? ' · compartida por WhatsApp' : ''
+                        }`
                       : complaint.geocode_status === 'not_found'
                         ? 'No se pudo ubicar la dirección'
                         : 'Pendiente de geocodificar'
@@ -222,6 +227,9 @@ export default function ComplaintDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          <CitizenCard complaint={complaint} />
+          <EvidenceCard complaint={complaint} />
 
           {/* Urgencia — define el color del círculo en el mapa */}
           <Card>
@@ -499,4 +507,122 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <span className="font-medium">{value}</span>
     </div>
   );
+}
+
+/** Quién hizo el reclamo. Ningún reclamo nuevo es anónimo: el agente registra nombre y DNI. */
+function CitizenCard({ complaint }: { complaint: Complaint }) {
+  const citizen = complaint.citizen;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <UserRound className="h-4 w-4 text-muted-foreground" />
+          Vecino
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        {citizen ? (
+          <>
+            <InfoRow label="Nombre" value={citizen.full_name} />
+            <InfoRow label="DNI" value={formatDni(citizen.dni)} />
+            <InfoRow label="Teléfono" value={citizen.phone_number} />
+            <InfoRow
+              label="Reclamos"
+              value={
+                citizen.complaints_count === 1
+                  ? 'Primer reclamo'
+                  : `${citizen.complaints_count} reclamos en total`
+              }
+            />
+            <InfoRow label="Registrado" value={formatDate(citizen.created_at)} />
+
+            {citizen.dni_other_phones.length > 0 && (
+              <p className="flex items-start gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Este DNI también está registrado en{' '}
+                  {citizen.dni_other_phones.length === 1 ? 'otro número' : `otros ${citizen.dni_other_phones.length} números`}
+                  : {citizen.dni_other_phones.join(', ')}. Puede ser un cambio de celular o un
+                  teléfono compartido; conviene revisarlo.
+                </span>
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <InfoRow label="Nombre" value={complaint.complainant_name ?? 'No informado'} />
+            <InfoRow label="Teléfono" value={complaint.phone_number} />
+            <p className="text-xs text-muted-foreground">
+              Reclamo anterior al registro de vecinos: no tiene DNI asociado.
+            </p>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Fotos que mandó el vecino. Las URLs son firmadas y vencen en 1 h: recargar si expiran. */
+function EvidenceCard({ complaint }: { complaint: Complaint }) {
+  const urls = complaint.photo_urls ?? [];
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Camera className="h-4 w-4 text-muted-foreground" />
+          Evidencia
+          {urls.length > 0 && (
+            <Badge variant="outline" className="border-0 bg-emerald-500/10 font-medium text-emerald-700 dark:text-emerald-400">
+              {urls.length} foto{urls.length !== 1 ? 's' : ''}
+            </Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {urls.length > 0 ? (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {urls.map((url, i) => (
+              <a
+                key={url}
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="group block overflow-hidden rounded-md border bg-muted"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- URL firmada externa, sin optimizar */}
+                <img
+                  src={url}
+                  alt={`Foto ${i + 1} del reclamo`}
+                  className="aspect-square w-full object-cover transition-transform group-hover:scale-105"
+                />
+              </a>
+            ))}
+          </div>
+        ) : (
+          <p className="flex items-start gap-2 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+            <ImageOff className="mt-px h-3.5 w-3.5 shrink-0" />
+            <span>
+              {complaint.no_photo_reason
+                ? <>Sin foto. Motivo del vecino: “{complaint.no_photo_reason}”.</>
+                : 'Sin foto.'}
+            </span>
+          </p>
+        )}
+
+        {complaint.location_source === 'whatsapp_pin' && (
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5 shrink-0" />
+            El vecino compartió su ubicación exacta desde WhatsApp.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** 30123456 → 30.123.456 */
+function formatDni(dni: string): string {
+  return dni.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }

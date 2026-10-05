@@ -77,10 +77,39 @@ export interface SessionContext {
     subcategory_id?: string;
     location?: string;
     complainant_name?: string;
+    /** Rutas en Storage de las fotos que mandó el vecino en esta sesión */
+    photos?: string[];
+    /** Ubicación compartida por WhatsApp: coordenadas exactas, sin geocodificar */
+    pin?: SharedLocation;
+    /** Ubicación que no se encontró en el mapa y ya se le repreguntó al vecino */
+    unmapped_location?: string;
   };
   missing_fields: string[];
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
   attempts: number;
+}
+
+export interface SharedLocation {
+  latitude: number;
+  longitude: number;
+  /** Dirección o nombre del lugar, si WhatsApp lo manda */
+  label: string | null;
+}
+
+/** Mensaje entrante ya procesado: texto más lo que adjuntó el vecino. */
+export interface InboundMessage {
+  text: string;
+  /** Fotos ya subidas a Storage */
+  photos: string[];
+  /** Adjuntos que no son fotos (audios, videos, documentos): solo su tipo */
+  unsupportedMedia: string[];
+  /** Fotos que llegaron pero no se pudieron guardar */
+  failedPhotos: number;
+  /** Lo que dijo el vecino en sus audios, ya pasado a texto */
+  transcript: string | null;
+  /** Audios que llegaron pero no se pudieron transcribir */
+  failedAudios: number;
+  location: SharedLocation | null;
 }
 
 export interface Session {
@@ -112,8 +141,12 @@ export interface Complaint {
   subcategory_id: string | null;
   phone_number: string;
   complainant_name: string | null;
+  citizen_id: string | null;
   description: string;
   location: string | null;
+  location_source: 'text' | 'whatsapp_pin' | null;
+  photos: string[];
+  no_photo_reason: string | null;
   summary: string;
   status: ComplaintStatus;
   status_note: string | null;

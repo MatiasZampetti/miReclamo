@@ -7,14 +7,13 @@
  * Pasale --force para volver a geocodificar los que fallaron antes.
  */
 import '../config/env.js';
-import Anthropic from '@anthropic-ai/sdk';
 import { env } from '../config/env.js';
 import { supabase } from '../services/supabase.js';
 import { geocodeComplaint, getTenantMapConfig } from '../services/complaint-geo.js';
+import { complete } from '../services/ai/llm.js';
 import type { UrgencyLevel } from '../types/index.js';
 
 const force = process.argv.includes('--force');
-const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
 const URGENCY_PROMPT = `Sos un clasificador de reclamos municipales. Para cada reclamo, devolvé su grado de urgencia según el RIESGO PARA LAS PERSONAS:
 
@@ -31,15 +30,7 @@ async function classifyUrgency(
     .map((c) => `- id: ${c.id}\n  categoría: ${c.category?.name ?? 'sin categoría'}\n  resumen: ${c.summary}\n  descripción: ${c.description}`)
     .join('\n');
 
-  const res = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 2048,
-    system: URGENCY_PROMPT,
-    messages: [{ role: 'user', content: `Clasificá estos reclamos:\n\n${listado}` }],
-  });
-
-  const text = res.content.find((b) => b.type === 'text');
-  const raw = text && text.type === 'text' ? text.text : '[]';
+  const raw = (await complete(URGENCY_PROMPT, `Clasificá estos reclamos:\n\n${listado}`)) || '[]';
   const json = raw.slice(raw.indexOf('['), raw.lastIndexOf(']') + 1);
 
   const map = new Map<string, UrgencyLevel>();

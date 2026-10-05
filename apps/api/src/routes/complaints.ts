@@ -6,6 +6,8 @@ import { geocodeComplaint } from '../services/complaint-geo.js';
 import { sendWhatsAppMessage } from '../services/twilio.js';
 import { unblockPhone } from '../services/moderation.js';
 import { saveMessage } from '../services/sessions.js';
+import { signedPhotoUrls } from '../services/media.js';
+import { otherPhonesWithDni } from '../services/citizens.js';
 import {
   getConversationMode,
   setConversationMode,
@@ -137,16 +139,56 @@ export async function complaintsRoutes(app: FastifyInstance) {
 
     const { data, error } = await supabase
       .from('complaints')
-      .select('*, category:categories(id, name), subcategory:subcategories(id, name)')
+      .select(
+        `*, category:categories(id, name), subcategory:subcategories(id, name),
+         citizen:citizens(id, full_name, dni, phone_number, created_at)`,
+      )
       .eq('id', id)
       .eq('tenant_id', user.tenant_id)
       .single();
 
     if (error || !data) return reply.status(404).send({ error: 'Reclamo no encontrado' });
-    return reply.send(data);
+    return reply.send(await withEvidence(data, user.tenant_id));
   });
 
+  /**
+   * Suma al reclamo lo que el panel necesita para validarlo: URLs firmadas de
+   * las fotos (el bucket es privado), cuántos reclamos hizo el vecino y si su
+   * DNI aparece registrado en otros números.
+   */
+  async function withEvidence(complaint: Record<string, unknown>, tenantId: string) {
+    const citizen = complaint.citizen as
+      | { id: string; dni: string; phone_number: string }
+      | null;
+
+    const [photoUrls, dniOtherPhones, citizenComplaints] = await Promise.all([
+      signedPhotoUrls((complaint.photos as string[] | null) ?? []),
+      citizen ? otherPhonesWithDni(tenantId, citizen.dni, citizen.phone_number) : [],
+      citizen
+        ? supabase
+            .from('complaints')
+            .select('id', { count: 'exact', head: true })
+            .eq('tenant_id', tenantId)
+            .eq('citizen_id', citizen.id)
+            .then((r) => r.count ?? 0)
+        : 0,
+    ]);
+
+    return {
+      ...complaint,
+      photo_urls: photoUrls,
+      citizen: citizen
+        ? { ...citizen, complaints_count: citizenComplaints, dni_other_phones: dniOtherPhones }
+        : null,
+    };
+  }
+
   // GET /api/complaints/:id/messages — historial de chat
+  //
+  // Al guardarse el reclamo su sesión se cierra, y lo que el vecino escribe
+  // después (consultar el estado, agregar datos) cae en sesiones nuevas. Para
+  // que el panel muestre la charla completa, como se ve en WhatsApp, se juntan
+  // todas las sesiones de ese número desde la del reclamo en adelante.
   app.get('/:id/messages', async (request, reply) => {
     const user = request.user as JwtPayload;
     const { id } = request.params as { id: string };
@@ -154,18 +196,31 @@ export async function complaintsRoutes(app: FastifyInstance) {
     // Verificar que el reclamo pertenece al tenant
     const { data: complaint } = await supabase
       .from('complaints')
-      .select('session_id')
+      .select('session_id, phone_number, session:sessions(created_at)')
       .eq('id', id)
       .eq('tenant_id', user.tenant_id)
       .single();
 
     if (!complaint?.session_id) return reply.send([]);
 
+    const since = (complaint.session as { created_at?: string } | null)?.created_at;
+    let sessionIds = [complaint.session_id as string];
+    if (since) {
+      const { data: sessions } = await supabase
+        .from('sessions')
+        .select('id')
+        .eq('tenant_id', user.tenant_id)
+        .eq('phone_number', complaint.phone_number)
+        .gte('created_at', since);
+      sessionIds = [...new Set([...sessionIds, ...(sessions ?? []).map((s) => s.id as string)])];
+    }
+
     const { data: messages } = await supabase
       .from('messages')
       .select('*')
-      .eq('session_id', complaint.session_id)
-      .order('created_at', { ascending: true });
+      .in('session_id', sessionIds)
+      .order('created_at', { ascending: true })
+      .limit(500);
 
     return reply.send(messages ?? []);
   });

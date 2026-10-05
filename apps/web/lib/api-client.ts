@@ -180,8 +180,17 @@ export interface Complaint {
   subcategory_id: string | null;
   phone_number: string;
   complainant_name: string | null;
+  citizen_id: string | null;
   description: string;
   location: string | null;
+  /** 'whatsapp_pin': coordenadas exactas compartidas por el vecino */
+  location_source: 'text' | 'whatsapp_pin' | null;
+  photos: string[];
+  /** Solo en el detalle: URLs firmadas (1 h) de las fotos del bucket privado */
+  photo_urls?: string[];
+  no_photo_reason: string | null;
+  /** Solo en el detalle. null en reclamos anteriores al registro de vecinos */
+  citizen?: ComplaintCitizen | null;
   summary: string;
   status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
   status_note: string | null;
@@ -197,6 +206,18 @@ export interface Complaint {
   resolved_at: string | null;
   category?: { id: string; name: string };
   subcategory?: { id: string; name: string };
+}
+
+export interface ComplaintCitizen {
+  id: string;
+  full_name: string;
+  dni: string;
+  phone_number: string;
+  created_at: string;
+  /** Reclamos hechos por este vecino, incluido el actual */
+  complaints_count: number;
+  /** Otros números registrados con el mismo DNI: se muestra para revisión */
+  dni_other_phones: string[];
 }
 
 export type MessageRole = 'user' | 'assistant' | 'admin';

@@ -48,7 +48,7 @@ function sleep(ms: number): Promise<void> {
  * Normaliza cómo escriben las direcciones los vecinos por WhatsApp.
  * Devuelve variantes ordenadas de más específica a más general.
  */
-function buildVariants(address: string): string[] {
+function buildVariants(address: string, city?: string | null): string[] {
   const clean = address.trim().replace(/\s+/g, ' ');
   const variants: string[] = [];
 
@@ -67,7 +67,36 @@ function buildVariants(address: string): string[] {
     if (withoutNumber && withoutNumber !== clean) variants.push(withoutNumber);
   }
 
+  // Lugares conocidos: "la terminal de ómnibus de Villa del Rosario" → "terminal"
+  const place = simplifyPlace(clean, city);
+  if (place && !variants.some((v) => v.toLowerCase() === place.toLowerCase())) {
+    variants.push(place);
+  }
+
   return variants;
+}
+
+/**
+ * Los vecinos nombran los lugares distinto de como están en OpenStreetMap:
+ * "la terminal de ómnibus" está cargada como "Terminal Villa del Rosario".
+ * Se sacan el artículo inicial, los calificativos de transporte y la mención
+ * de la ciudad (que ya se agrega aparte a la consulta).
+ */
+function simplifyPlace(text: string, city?: string | null): string {
+  let place = text;
+  const cityName = city?.split(',')[0]?.trim();
+  if (cityName) {
+    // Sin regex armada con el nombre: así no hace falta escapar nada
+    const at = place.toLowerCase().indexOf(cityName.toLowerCase());
+    if (at >= 0) {
+      place = place.slice(0, at).replace(/\s+(?:de|en)\s*$/i, '') + place.slice(at + cityName.length);
+    }
+  }
+  return place
+    .replace(/^(?:en\s+)?(?:la|el|los|las)\s+/i, '')
+    .replace(/\s+de\s+(?:[óo]mnibus|colectivos|micros|buses)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 async function query(
@@ -127,7 +156,7 @@ export async function geocodeAddress(
 ): Promise<GeocodeResult> {
   if (!address || !address.trim()) return { status: 'not_found' };
 
-  const variants = buildVariants(address);
+  const variants = buildVariants(address, ctx.city);
 
   try {
     // 1ª pasada: acotada al municipio (evita falsos positivos lejanos)
