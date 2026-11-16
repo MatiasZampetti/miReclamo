@@ -1,431 +1,368 @@
-# miReclamo
+<h1 align="center">🏛 miReclamo</h1>
 
-Sistema de reclamos ciudadanos por WhatsApp con clasificación automática mediante IA y dashboard de administración para municipalidades.
+<p align="center">
+  <b>Automatización de reclamos municipales por WhatsApp con inteligencia artificial</b><br/>
+  El vecino cuenta el problema como le sale. La IA lo entiende, lo clasifica por categoría y urgencia, y lo carga en el sistema.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Automatización-IA_+_WhatsApp-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" alt="Automatización"/>
+  <img src="https://img.shields.io/badge/Proyecto_integrador-Tecnicatura_en_Desarrollo_de_Software-1f6feb?style=for-the-badge" alt="Proyecto integrador"/>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/>
+  <img src="https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js"/>
+  <img src="https://img.shields.io/badge/Fastify-000000?style=flat-square&logo=fastify&logoColor=white" alt="Fastify"/>
+  <img src="https://img.shields.io/badge/Next.js_14-000000?style=flat-square&logo=nextdotjs&logoColor=white" alt="Next.js"/>
+  <img src="https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" alt="Tailwind"/>
+  <img src="https://img.shields.io/badge/Supabase-3FCF8E?style=flat-square&logo=supabase&logoColor=white" alt="Supabase"/>
+  <img src="https://img.shields.io/badge/Claude_API-D97757?style=flat-square&logo=anthropic&logoColor=white" alt="Claude"/>
+  <img src="https://img.shields.io/badge/Groq-F55036?style=flat-square&logoColor=white" alt="Groq"/>
+  <img src="https://img.shields.io/badge/Twilio-F22F46?style=flat-square&logo=twilio&logoColor=white" alt="Twilio"/>
+  <img src="https://img.shields.io/badge/OpenStreetMap-7EBC6F?style=flat-square&logo=openstreetmap&logoColor=white" alt="OpenStreetMap"/>
+</p>
 
 ---
 
-## Descripción general
+## 📋 Índice
 
-Un ciudadano manda un mensaje de texto libre por WhatsApp describiendo su reclamo. Un agente de inteligencia artificial (Claude de Anthropic) interpreta el mensaje, lo clasifica automáticamente en una categoría (luminaria, limpieza, baches, etc.), y si le falta información le pregunta al ciudadano de forma conversacional. Una vez que tiene todo, guarda el reclamo en la base de datos y el ciudadano recibe una confirmación. Los administradores acceden a un dashboard web para ver, gestionar y hacer seguimiento de todos los reclamos.
+- [¿Qué proceso automatiza?](#-qué-proceso-automatiza)
+- [Cómo funciona](#-cómo-funciona)
+- [Cómo se usa](#-cómo-se-usa)
+- [Clasificación automática](#-clasificación-automática)
+- [Funcionalidades](#-funcionalidades)
+- [Arquitectura](#-arquitectura)
+- [Cómo correrlo](#-cómo-correrlo)
+- [Estructura del proyecto](#-estructura-del-proyecto)
+- [Seguridad](#-seguridad)
+- [Autor](#-autor)
 
 ---
 
-## Stack tecnológico
+## 🎯 ¿Qué proceso automatiza?
 
-### Backend
-| Tecnología | Versión | Uso |
-|---|---|---|
-| Node.js | v24+ | Runtime del servidor |
-| Fastify | v4 | Framework HTTP, manejo de rutas y plugins |
-| TypeScript | v5 | Tipado estático |
-| tsx | v4 | Ejecución de TypeScript en desarrollo |
-| Zod | v3 | Validación de esquemas y variables de entorno |
-| bcryptjs | v2 | Hash de contraseñas de administradores |
-| @fastify/jwt | v8 | Autenticación JWT para el dashboard |
-| @fastify/cors | v9 | Configuración de CORS entre API y frontend |
-| @fastify/formbody | v7 | Parseo de form-data enviado por Twilio |
+### El problema
+En la mayoría de los municipios, un reclamo (un poste apagado, un bache, basura acumulada) llega por teléfono, en persona o por redes. Después **un empleado tiene que leerlo, entender de qué se trata, decidir a qué área corresponde, evaluar si es urgente y cargarlo a mano**. Es lento, depende de quién atienda y muchas veces faltan datos: dónde es, quién lo reportó, una foto.
 
-### Frontend
-| Tecnología | Versión | Uso |
-|---|---|---|
-| Next.js | v14 | Framework React con App Router |
-| React | v18 | Librería de UI |
-| Tailwind CSS | v3 | Estilos utilitarios |
-| next-auth | v5 beta | Autenticación del dashboard |
-| @tanstack/react-table | v8 | Tabla de reclamos con filtros y paginación |
-| recharts | v2 | Gráficos de estadísticas |
-| react-hook-form | v7 | Manejo de formularios |
-| lucide-react | — | Íconos |
+### La solución
+miReclamo **automatiza todo ese circuito de recepción y clasificación**:
 
-### Inteligencia Artificial
-| Tecnología | Detalle |
+| Antes (manual) | Con miReclamo (automático) |
 |---|---|
-| Anthropic Claude API | Modelo: `claude-haiku-4-5-20251001` |
-| SDK | `@anthropic-ai/sdk` v0.30 |
-| Estrategia | Tool use (`save_complaint`) para señalar cuándo guardar el reclamo |
-| Prompt | Dinámico — se construye en tiempo real con las categorías activas del tenant |
-| Costo estimado | < $0.01 por conversación completa con Haiku |
+| El vecino llama o se acerca en horario de oficina | Escribe por **WhatsApp**, a cualquier hora, con texto o **audio** |
+| Un empleado interpreta el reclamo | Un **agente de IA** entiende el mensaje en lenguaje natural |
+| Se decide a mano la categoría y el área | La IA asigna **categoría y subcategoría** |
+| La prioridad depende del criterio de cada uno | La IA asigna **urgencia** (alta, media o baja) según el riesgo para las personas |
+| Faltan datos y hay que volver a llamar | El agente **pide lo que falta**: identidad, ubicación y foto |
+| La dirección queda como texto | Se **geocodifica** y aparece en un mapa |
+| El vecino no sabe en qué quedó | Recibe un **número de reclamo** y puede consultar el estado por el mismo chat |
 
-### Base de datos
-| Tecnología | Detalle |
+El municipio ya no carga reclamos: **los recibe ordenados, priorizados y ubicados en un mapa**, listos para asignar.
+
+---
+
+## ⚙️ Cómo funciona
+
+```mermaid
+flowchart TD
+    V[👤 Vecino escribe por WhatsApp<br/>texto · audio · foto · ubicación] --> T[Twilio]
+    T -->|webhook con firma verificada| API[API Fastify]
+    API -->|audio| W[🎙 Whisper en Groq<br/>transcribe a texto]
+    W --> AG
+    API --> AG{🤖 Agente de IA<br/>Claude o Groq}
+
+    AG -->|no está registrado| R[Pide nombre y DNI<br/>→ register_citizen]
+    AG -->|faltan datos| P[Pregunta lo que falta:<br/>qué pasó · dónde · foto]
+    AG -->|no es municipal o es spam| O[out_of_scope<br/>deriva o advierte]
+    AG -->|tiene todo| S[save_complaint<br/>categoría + urgencia + confianza]
+
+    R --> AG
+    P --> AG
+    S --> VAL{Validación en código}
+    VAL -->|falta algo| AG
+    VAL -->|ok| DB[(Supabase)]
+    DB --> GEO[📍 Geocodificación<br/>OpenStreetMap]
+    DB --> OK[✅ Vecino recibe<br/>número de reclamo]
+    GEO --> PANEL[🖥 Panel del municipio<br/>tabla · mapa · estadísticas]
+```
+
+### Paso a paso
+
+1. **Recepción:** el vecino escribe al número de WhatsApp del municipio. Twilio envía el mensaje a la API, que verifica la firma y responde enseguida para no cortar la conexión.
+2. **Transcripción:** si es una nota de voz, se pasa a texto con Whisper y se le muestra al vecino lo que se entendió.
+3. **Conversación:** el agente de IA recibe el historial, las categorías activas del municipio y los datos ya juntados. Hace **una pregunta por mensaje**, en español rioplatense.
+4. **Identificación:** si es la primera vez, pide nombre y DNI. No se aceptan reclamos anónimos, para poder dar seguimiento.
+5. **Datos del reclamo:** pide qué pasó, dónde (calle y altura, esquina, lugar conocido o ubicación compartida) y una foto, o el motivo si no puede mandarla.
+6. **Clasificación:** con todo eso, la IA llama a `save_complaint` con la **categoría**, la **urgencia** y su **nivel de confianza**. **Nunca se lo pregunta al vecino**: lo deduce de la descripción.
+7. **Validación:** antes de guardar, el código verifica por su cuenta que el vecino esté registrado, que la categoría exista y esté activa, y que haya ubicación y foto o motivo. Si falta algo, se lo devuelve al agente para que lo resuelva. **No depende de que la IA "se porte bien"**.
+8. **Registro:** se guarda el reclamo, se geocodifica la dirección y el vecino recibe su número de reclamo.
+9. **Gestión:** el reclamo aparece en el panel, ordenado por urgencia y ubicado en el mapa.
+
+---
+
+## 📲 Cómo se usa
+
+### Para el vecino: solo WhatsApp
+
+Sin apps ni formularios. Ejemplo de una conversación:
+
+> 👤 **Vecino:** hola, hay un poste de luz que está tirando chispas y los cables cuelgan
+>
+> 🤖 **miReclamo:** ¡Hola! Para registrar tu reclamo y poder darle seguimiento, decime tu *nombre y apellido* y tu *DNI*.
+>
+> 👤 **Vecino:** Juan Pérez, 30123456
+>
+> 🤖 **miReclamo:** Gracias, Juan. ¿*Dónde* está el poste? Decime calle y altura, una esquina, o compartí tu ubicación (📎 → Ubicación).
+>
+> 👤 **Vecino:** San Martín y Belgrano
+>
+> 🤖 **miReclamo:** ¿Podés mandarme una *foto* del poste? No te acerques a los cables.
+>
+> 👤 **Vecino:** 📷 *[foto]*
+>
+> 🤖 **miReclamo:** ¡Gracias, Juan! Tu reclamo quedó registrado con el número *5D26D661*. Podés consultar cómo va escribiéndome cuando quieras.
+
+**Resultado en el panel** (sin que nadie lo cargue a mano):
+
+| Campo | Valor asignado automáticamente |
 |---|---|
-| Supabase | PostgreSQL administrado en la nube |
-| @supabase/supabase-js | v2 — cliente oficial |
-| Autenticación | Service Role Key (desde el backend, bypasea RLS) |
-| Multi-tenant | Todas las tablas tienen `tenant_id` para soportar múltiples municipalidades |
+| Categoría | Luminaria → Cables sueltos |
+| Urgencia | 🔴 **Alta** (peligro inmediato para las personas) |
+| Ubicación | San Martín y Belgrano, con pin en el mapa |
+| Evidencia | Foto adjunta |
+| Vecino | Juan Pérez |
 
-### WhatsApp / Mensajería
-| Tecnología | Detalle |
+El vecino también puede:
+- 🎙 **Mandar audios** en vez de escribir.
+- 📍 **Compartir su ubicación** de WhatsApp en lugar de escribir la dirección.
+- 🔎 **Consultar el estado** de sus reclamos: *"¿cómo va mi reclamo 5D26D661?"*
+
+### Para el municipio: el panel web
+
+| Sección | Qué permite |
 |---|---|
-| Twilio WhatsApp Sandbox | Para desarrollo y testing |
-| SDK | `twilio` v5 |
-| Mecanismo | Webhook HTTP POST — Twilio llama a tu servidor cuando llega un mensaje |
-| Verificación | Firma HMAC con `X-Twilio-Signature` |
+| **Reclamos** | Tabla con filtros por estado, categoría, urgencia y fechas |
+| **Detalle** | Datos, foto, conversación completa, cambio de estado y corrección manual de la urgencia |
+| **Mapa** | Todos los reclamos en el mapa, con colores por urgencia |
+| **Estadísticas** | Totales, reclamos por categoría y evolución en el tiempo |
+| **Categorías** | Alta, edición y baja de categorías y subcategorías. **La IA se adapta sola**: el prompt se arma con las categorías activas |
+| **Atención humana** | Un operador puede **tomar la conversación**, responderle al vecino desde el panel y devolvérsela a la IA |
 
-### Infraestructura local
-| Tecnología | Uso |
-|---|---|
-| ngrok | Túnel para exponer localhost a internet (necesario para el webhook de Twilio) |
-| npm workspaces | Monorepo — maneja `apps/api` y `apps/web` desde la raíz |
+Estados de un reclamo: `Pendiente` → `En proceso` → `Resuelto` / `Rechazado`.
 
 ---
 
-## Arquitectura del sistema
+## 🧠 Clasificación automática
 
-```
-Ciudadano
-    │
-    │  WhatsApp
-    ▼
-Twilio (intermediario WhatsApp Business)
-    │
-    │  POST /webhook/twilio
-    │  (form-urlencoded: Body, From)
-    ▼
-Fastify API — apps/api (puerto 3001)
-    │
-    ├── Responde 200 a Twilio inmediatamente (evita timeout de 15s)
-    │
-    └── setImmediate (procesamiento async)
-            │
-            ├── Carga/crea sesión en Supabase
-            ├── Carga categorías activas del tenant
-            ├── Construye system prompt dinámico
-            │
-            ▼
-        Claude API (claude-haiku-4-5)
-            │
-            ├── Respuesta de texto → envía por WhatsApp via Twilio API
-            │
-            └── Tool use: save_complaint
-                    │
-                    ▼
-                Supabase (PostgreSQL)
-                    │
-                    ▼
-                Dashboard admin — apps/web (puerto 3000)
-```
-
----
-
-## Base de datos — Esquema
-
-### Tablas principales
-
-| Tabla | Descripción |
-|---|---|
-| `tenants` | Entidades (municipalidades). Base del modelo multi-tenant. |
-| `admin_users` | Usuarios del dashboard. Contraseña hasheada con bcrypt. |
-| `categories` | Categorías de reclamos, configurables por tenant (luminaria, limpieza, etc.) |
-| `subcategories` | Subcategorías anidadas dentro de cada categoría |
-| `sessions` | Estado de cada conversación de WhatsApp activa. El contexto se guarda en JSONB. |
-| `messages` | Historial completo de mensajes de cada conversación |
-| `complaints` | Reclamos finalizados y clasificados por el agente |
-
-### Contexto de sesión (JSONB)
-
-Cada fila de `sessions` guarda el estado de la conversación en un campo `context`:
-
-```json
-{
-  "state": "collecting",
-  "collected": {
-    "category_id": "uuid-de-luminaria",
-    "description": "Hay un poste apagado",
-    "location": null
-  },
-  "missing_fields": ["location"],
-  "messages": [
-    { "role": "user", "content": "hay un poste apagado" },
-    { "role": "assistant", "content": "¿En qué dirección está el poste?" }
-  ],
-  "attempts": 2
-}
-```
-
-Esto hace que la API sea **stateless** — no guarda nada en memoria, todo vive en la base de datos. Si el servidor se reinicia, las conversaciones en curso continúan sin problema.
-
----
-
-## API — Endpoints
-
-### Públicos
-| Método | Ruta | Descripción |
-|---|---|---|
-| POST | `/webhook/twilio` | Recibe mensajes entrantes de WhatsApp. Requiere firma válida de Twilio |
-| GET | `/webhook/twilio` | Verificación del webhook (Twilio) |
-| POST | `/api/auth/login` | Login de administrador, devuelve JWT |
-| GET | `/health` | Health check del servidor |
-
-### Protegidos (requieren JWT)
-| Método | Ruta | Descripción |
-|---|---|---|
-| GET | `/api/complaints` | Lista reclamos con filtros (status, category, fechas, paginación) |
-| GET | `/api/complaints/:id` | Detalle de un reclamo |
-| GET | `/api/complaints/:id/messages` | Historial de la conversación de WhatsApp |
-| PATCH | `/api/complaints/:id/status` | Cambiar estado del reclamo |
-| GET | `/api/categories` | Lista categorías con subcategorías anidadas |
-| POST | `/api/categories` | Crear categoría |
-| PATCH | `/api/categories/:id` | Editar categoría |
-| DELETE | `/api/categories/:id` | Eliminar categoría |
-| POST | `/api/categories/:id/subcategories` | Crear subcategoría |
-| PATCH | `/api/categories/:id/subcategories/:subId` | Editar subcategoría |
-| DELETE | `/api/categories/:id/subcategories/:subId` | Eliminar subcategoría |
-| GET | `/api/stats/summary` | Totales y promedios |
-| GET | `/api/stats/categories` | Reclamos por categoría |
-| GET | `/api/stats/timeline` | Reclamos en el tiempo (día/semana/mes) |
-
----
-
-## Agente de IA — Diseño
-
-### Flujo conversacional
-
-```
-GREETING → COLLECTING → (Claude invoca save_complaint) → COMPLETED
-```
-
-### Tool use
-
-El agente usa un tool de Claude llamado `save_complaint`. En lugar de parsear texto libre para detectar cuándo terminar, Claude llama explícitamente a este tool cuando tiene toda la información necesaria. Esto es más robusto y predecible que parsear lenguaje natural.
-
-Campos del tool:
-- `category_id` — UUID de la categoría clasificada
-- `subcategory_id` — UUID de la subcategoría (opcional)
-- `description` — texto completo del reclamo
-- `location` — dirección extraída de la conversación
-- `summary` — resumen en una oración generado por Claude
-- `complainant_name` — nombre si el ciudadano lo mencionó
-- `confidence` — nivel de confianza en la clasificación (0.0 a 1.0)
-
-### Prompt dinámico
-
-El system prompt se construye en cada request con las categorías activas del tenant. Esto significa que **agregar o editar una categoría desde el dashboard tiene efecto inmediato** en el próximo mensaje que procese el agente.
-
----
-
-## Autenticación
-
-- El dashboard usa **NextAuth v5** con el provider `Credentials`
-- Al hacer login, NextAuth llama a `POST /api/auth/login` en el backend
-- El backend verifica la contraseña con bcrypt y devuelve un **JWT firmado** (expira en 8h)
-- El JWT se guarda en la sesión de NextAuth y se adjunta como `Bearer token` en cada request al backend
-- El middleware de Next.js (`middleware.ts`) protege todas las rutas del dashboard y redirige a `/login` si no hay sesión
-
----
-
-## Seguridad
-
-- **Webhook de WhatsApp**: `POST /webhook/twilio` valida la cabecera `X-Twilio-Signature`
-  antes de procesar nada (`apps/api/src/middleware/twilio-verify.ts`). Si la firma no es
-  válida responde `403` y el mensaje nunca llega al agente de IA.
-- **Proxy**: Fastify se registra con `trustProxy: true`. Es obligatorio detrás de ngrok:
-  Twilio firma sobre la URL pública `https://...`, y sin esto el server reconstruiría
-  `http://localhost` y rechazaría todos los mensajes legítimos.
-- **Rate limiting** (`@fastify/rate-limit`), contado por IP:
-
-| Ruta | Límite |
-|---|---|
-| `POST /api/auth/login` | 5 / minuto |
-| `POST /webhook/twilio` | 60 / minuto |
-| Resto de las rutas | 100 / minuto |
-
-- **RLS**: habilitado en las 8 tablas, a propósito sin policies (migración `004`). Solo la
-  API, que usa la secret key de Supabase, puede leer y escribir.
-- **Secretos**: nunca se commitean. `.env` y `.env.local` están en `.gitignore` y los
-  archivos `.example` solo llevan placeholders.
-
-### Si el webhook empieza a devolver 403
-
-Lo primero a mirar es la URL que el servidor reconstruyó: queda logueada en el warning
-`Firma de Twilio inválida`. Si no coincide con la configurada en el sandbox de Twilio
-—típico al reiniciar ngrok, que genera un dominio nuevo— hay que actualizar la URL en
-Twilio.
-
----
-
-## Setup inicial
-
-### 1. Instalar dependencias
-
-```powershell
-npm install
-```
-
-### 2. Configurar la base de datos en Supabase
-
-1. Crear un proyecto en [supabase.com](https://supabase.com)
-2. Ir a **SQL Editor** y ejecutar:
-   - `supabase/migrations/001_initial_schema.sql`
-   - `supabase/seed.sql`
-3. Generar el hash de la contraseña admin:
-```powershell
-cd apps/api; node -e "import('bcryptjs').then(b => b.default.hash('admin123', 10).then(h => console.log(h)))"
-```
-4. En **Table Editor → admin_users** reemplazar el campo `password_hash` con el hash generado
-
-### 3. Configurar variables de entorno
-
-**`apps/api/.env`**:
-```
-PORT=3001
-SUPABASE_URL=https://xxxx.supabase.co
-SUPABASE_SERVICE_KEY=sb_secret_...    # Settings > API Keys > Secret keys
-ANTHROPIC_API_KEY=sk-ant-...         # console.anthropic.com > API Keys
-TWILIO_ACCOUNT_SID=ACxxxx            # console.twilio.com > Dashboard
-TWILIO_AUTH_TOKEN=xxxx               # console.twilio.com > Dashboard
-TWILIO_WHATSAPP_NUMBER=+14155238886  # Messaging > Try it out > Send a WhatsApp message
-JWT_SECRET=min-32-caracteres-random
-DEFAULT_TENANT_ID=00000000-0000-0000-0000-000000000001
-WEB_URL=http://localhost:3000          # origen permitido por CORS
-```
-
-**`apps/web/.env.local`**:
-```
-NEXT_PUBLIC_API_URL=http://localhost:3001
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=secreto-random
-```
-
-### 4. Configurar Twilio + ngrok
-
-```powershell
-# Instalar ngrok (una sola vez)
-winget install ngrok.ngrok
-ngrok config add-authtoken TU_TOKEN_DE_NGROK
-```
-
-Activar el sandbox de WhatsApp:
-1. Ir a **Messaging → Try it out → Send a WhatsApp message** en Twilio
-2. Desde tu celular, mandar el código `join xxxx-xxxx` al número del sandbox
-3. Twilio responde confirmando la activación
-
-### 5. Correr el proyecto
-
-```powershell
-# Terminal 1 — API
-npm run dev:api
-
-# Terminal 2 — Dashboard
-npm run dev:web
-
-# Terminal 3 — ngrok
-ngrok http 3001
-```
-
-Copiar la URL de ngrok (ej: `https://xxxx.ngrok-free.dev`) y configurar en Twilio:
-- **Messaging → Try it out → Send a WhatsApp message → Sandbox settings**
-- "When a message comes in" → `https://xxxx.ngrok-free.dev/webhook/twilio`
-- Método: `HTTP POST` → **Save**
-
----
-
-## Correr el proyecto
-
-- Dashboard: http://localhost:3000
-- API: http://localhost:3001
-- Inspector ngrok: http://127.0.0.1:4040
-
-Credenciales por defecto:
-| Campo | Valor |
-|---|---|
-| Email | admin@mireclamo.com |
-| Contraseña | admin123 |
-
----
-
-## Categorías por defecto (seed)
+### Categoría
+La IA elige entre las **categorías activas del municipio**, que se cargan desde el panel. Las que vienen de ejemplo:
 
 | Categoría | Subcategorías |
 |---|---|
-| Luminaria | Poste apagado, Poste dañado, Cables sueltos |
-| Limpieza | Basura acumulada en vereda, Contenedor desbordado, Limpieza de zanjón |
-| Baches y pavimento | Bache en calzada, Vereda rota |
-| Espacios verdes | Poda de árboles, Mantenimiento de plaza |
-| Tránsito | Semáforo roto, Señal faltante |
+| 💡 Luminaria | Poste apagado · Poste dañado · Cables sueltos |
+| 🗑 Limpieza | Basura acumulada en vereda · Contenedor desbordado · Limpieza de zanjón |
+| 🚧 Baches y pavimento | Bache en calzada · Vereda rota |
+| 🌳 Espacios verdes | Poda de árboles · Mantenimiento de plaza |
+| 🚦 Tránsito | Semáforo roto |
 
-Todas son editables desde el dashboard en `/categories`.
+Además, la IA registra su **nivel de confianza** (0 a 1). Si después de 5 intercambios no logra clasificar, guarda el reclamo con confianza baja en la categoría más cercana, para que un operador lo revise.
+
+### Urgencia
+Se decide según el **riesgo para las personas**:
+
+| Urgencia | Criterio | Ejemplos |
+|---|---|---|
+| 🔴 **Alta** | Peligro inmediato | Cables sueltos, poste caído, semáforo roto, pérdida de gas |
+| 🟡 **Media** | Afecta la circulación o la salubridad | Bache, basura acumulada, luminaria apagada |
+| 🟢 **Baja** | Mantenimiento o estético | Poda, pintura, pasto alto |
+
+El sistema guarda si la urgencia la asignó la **IA** o la corrigió un **operador**, así se puede medir qué tan bien clasifica.
+
+### Fuera de alcance y moderación
+- **No es municipal** (policía, bomberos, energía, agua, gas…): la IA le explica al vecino a qué organismo corresponde. No suma advertencia, porque el vecino actúa de buena fe.
+- **Spam, insultos o charla sin relación**: primer aviso, último aviso y **bloqueo al tercero**. El operador lo puede desbloquear desde el panel.
 
 ---
 
-## Estructura del proyecto
+## ✨ Funcionalidades
+
+- 🤖 Agente conversacional con *tool use*: `register_citizen`, `save_complaint`, `check_complaint_status`, `out_of_scope`
+- 🔁 **Proveedor de IA intercambiable**: Claude (Anthropic) o un modelo abierto en Groq, configurable con una variable de entorno y sin tocar código
+- 🎙 Transcripción de notas de voz con **Whisper** (Groq)
+- 📷 Fotos como evidencia, guardadas en un bucket **privado** (se ven con URLs firmadas)
+- 📍 Geocodificación con **OpenStreetMap / Nominatim**, que entiende cómo escriben los vecinos: esquinas, lugares conocidos, abreviaturas
+- 🗺 Mapa de reclamos con **Leaflet**
+- 👤 Registro de vecinos con nombre y DNI. El DNI nunca se le pasa al modelo
+- 🧑‍💼 Modo humano: el operador toma la conversación respetando la **ventana de 24 h** de WhatsApp
+- 🏛 **Multi-tenant**: preparado para varios municipios en la misma instalación
+- 💾 API **stateless**: el estado de cada conversación vive en la base, así que un reinicio no corta los chats en curso
+
+---
+
+## 🏗 Arquitectura
+
+```
+miReclamo/
+├── apps/api   → Backend: Fastify + agente de IA + webhook de WhatsApp (puerto 3001)
+└── apps/web   → Panel del municipio: Next.js 14 (puerto 3000)
+                         │
+              Supabase (PostgreSQL + Storage)
+```
+
+| Capa | Tecnologías |
+|---|---|
+| **Backend** | Node.js, Fastify, TypeScript, Zod, JWT, bcrypt, rate limiting |
+| **IA** | Claude API (Anthropic) o Groq (`gpt-oss-120b`), con *tool use* y Whisper para audios |
+| **Mensajería** | Twilio WhatsApp API, con webhooks y firma HMAC |
+| **Frontend** | Next.js 14 (App Router), React 18, Tailwind CSS, shadcn/ui, TanStack Table, Recharts, Leaflet, NextAuth |
+| **Datos** | Supabase: PostgreSQL con RLS y Storage privado |
+| **Geocodificación** | Nominatim (OpenStreetMap), con cola de 1 consulta por segundo según su política de uso |
+| **Monorepo** | npm workspaces |
+
+### Modelo de datos
+
+| Tabla | Contenido |
+|---|---|
+| `tenants` | Municipios (base del modelo multi-tenant) |
+| `admin_users` | Operadores del panel, con contraseña hasheada |
+| `categories` / `subcategories` | Categorías configurables por municipio |
+| `citizens` | Vecinos identificados (nombre y DNI) |
+| `sessions` / `messages` | Estado e historial de cada conversación |
+| `complaints` | Reclamos con categoría, urgencia, confianza, ubicación y coordenadas |
+| `conversation_modes` | Modo IA o humano, advertencias y bloqueos por número |
+
+---
+
+## 🚀 Cómo correrlo
+
+### Requisitos
+- [Node.js](https://nodejs.org/) 20 o superior
+- Cuenta en [Supabase](https://supabase.com/) (gratis)
+- Cuenta en [Twilio](https://www.twilio.com/) con el **WhatsApp Sandbox** (gratis para pruebas)
+- API key de [Groq](https://console.groq.com/) (gratis) y/o de [Anthropic](https://console.anthropic.com/)
+- [ngrok](https://ngrok.com/), para exponer la API local al webhook de Twilio
+
+### 1. Clonar e instalar
+```bash
+git clone https://github.com/MatiasZampetti/miReclamo.git
+cd miReclamo
+npm install
+```
+
+### 2. Base de datos
+1. Creá un proyecto en Supabase.
+2. En el **SQL Editor**, ejecutá **en orden** los archivos de `supabase/migrations/` (del `001` al `006`).
+3. Ejecutá `supabase/seed.sql`. Crea el municipio de ejemplo, un usuario administrador y las categorías.
+
+> ⚠️ Cambiá la contraseña del administrador de ejemplo antes de usarlo en un entorno real.
+
+### 3. Variables de entorno
+
+**`apps/api/.env`**
+```env
+PORT=3001
+SUPABASE_URL=https://TU-PROYECTO.supabase.co
+SUPABASE_SERVICE_KEY=tu-service-role-key
+
+# Proveedor de IA: groq (gratis) o anthropic
+LLM_PROVIDER=groq
+GROQ_API_KEY=gsk_...            # también se usa para transcribir audios
+ANTHROPIC_API_KEY=sk-ant-...    # solo si LLM_PROVIDER=anthropic
+
+TWILIO_ACCOUNT_SID=AC...
+TWILIO_AUTH_TOKEN=...
+TWILIO_WHATSAPP_NUMBER=+14155238886
+
+JWT_SECRET=una-cadena-aleatoria-de-al-menos-32-caracteres
+DEFAULT_TENANT_ID=00000000-0000-0000-0000-000000000001
+WEB_URL=http://localhost:3000
+```
+
+**`apps/web/.env.local`**
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=una-cadena-aleatoria
+```
+En el repo hay archivos `.env.example` de referencia en `apps/api/` y `apps/web/`.
+
+> La API valida todas las variables al arrancar y, si falta alguna, indica cuál.
+
+### 4. Levantar el proyecto
+```bash
+npm run dev:api    # API en http://localhost:3001
+npm run dev:web    # Panel en http://localhost:3000
+```
+En Windows también podés usar `start.ps1`, que levanta todo junto.
+
+### 5. Conectar WhatsApp
+1. Exponé la API: `ngrok http 3001`
+2. En Twilio → **Messaging → Try it out → WhatsApp Sandbox**, configurá *"When a message comes in"* con:
+   ```
+   https://TU-URL-DE-NGROK/webhook/twilio
+   ```
+3. Desde tu celular, uníte al sandbox (mandando el código que indica Twilio) y escribí tu primer reclamo.
+4. Entrá al panel en [http://localhost:3000](http://localhost:3000) y vas a ver el reclamo clasificado.
+
+### Scripts
+| Comando | Descripción |
+|---|---|
+| `npm run dev:api` | API en modo desarrollo |
+| `npm run dev:web` | Panel en modo desarrollo |
+| `npm run build` | Build de los dos proyectos |
+| `npm run lint` | Chequeo de tipos y linter |
+| `npm run backfill:geo --workspace=apps/api` | Geocodifica reclamos viejos que no tienen coordenadas |
+
+---
+
+## 📁 Estructura del proyecto
 
 ```
 miReclamo/
 ├── apps/
-│   ├── api/                        # Fastify backend (puerto 3001)
-│   │   ├── src/
-│   │   │   ├── config/
-│   │   │   │   └── env.ts          # Validación de variables de entorno con Zod
-│   │   │   ├── middleware/
-│   │   │   │   ├── auth.ts         # Verificación JWT
-│   │   │   │   └── twilio-verify.ts # Verificación de firma Twilio
-│   │   │   ├── routes/
-│   │   │   │   ├── auth.ts         # Login
-│   │   │   │   ├── webhook.ts      # Entrada de mensajes WhatsApp
-│   │   │   │   ├── complaints.ts   # CRUD reclamos
-│   │   │   │   ├── categories.ts   # CRUD categorías/subcategorías
-│   │   │   │   └── stats.ts        # Estadísticas
-│   │   │   ├── services/
-│   │   │   │   ├── ai/
-│   │   │   │   │   ├── agent.ts    # Orquestador principal del agente IA
-│   │   │   │   │   ├── prompts.ts  # Constructor del system prompt dinámico
-│   │   │   │   │   └── tools.ts    # Definición del tool save_complaint
-│   │   │   │   ├── sessions.ts     # Gestión de sesiones de conversación
-│   │   │   │   ├── twilio.ts       # Envío de mensajes WhatsApp
-│   │   │   │   └── supabase.ts     # Cliente Supabase singleton
-│   │   │   ├── types/
-│   │   │   │   └── index.ts        # Tipos TypeScript compartidos
-│   │   │   └── index.ts            # Entry point del servidor
-│   │   ├── .env.example
-│   │   ├── package.json
-│   │   └── tsconfig.json
-│   │
-│   └── web/                        # Next.js dashboard (puerto 3000)
-│       ├── app/
-│       │   ├── (auth)/login/       # Página de login
-│       │   ├── (dashboard)/
-│       │   │   ├── complaints/     # Tabla de reclamos
-│       │   │   │   └── [id]/       # Detalle del reclamo + visor de chat
-│       │   │   ├── categories/     # CRUD categorías
-│       │   │   └── stats/          # Gráficos y estadísticas
-│       │   └── api/auth/           # Handler de NextAuth
-│       ├── components/
-│       │   ├── dashboard-nav.tsx   # Navegación lateral
-│       │   └── session-provider.tsx
-│       ├── lib/
-│       │   ├── api-client.ts       # Cliente HTTP tipado para el backend
-│       │   ├── auth.ts             # Configuración NextAuth
-│       │   └── utils.ts            # Helpers (cn, formatDate, STATUS_LABELS)
-│       ├── middleware.ts            # Protección de rutas
-│       └── .env.local.example
-│
-└── supabase/
-    ├── migrations/
-    │   └── 001_initial_schema.sql  # Schema completo con índices y triggers
-    └── seed.sql                    # Tenant, admin y categorías por defecto
+│   ├── api/src/
+│   │   ├── routes/          # webhook, complaints, categories, stats, auth, tenant
+│   │   ├── services/
+│   │   │   ├── ai/          # agente, prompt dinámico, herramientas, proveedor de LLM
+│   │   │   ├── transcription.ts   # Whisper (audios)
+│   │   │   ├── geocoding.ts       # Nominatim
+│   │   │   ├── moderation.ts      # advertencias y bloqueos
+│   │   │   └── conversation-mode.ts  # modo IA / humano
+│   │   └── middleware/      # JWT y verificación de firma de Twilio
+│   └── web/
+│       ├── app/(dashboard)/ # reclamos, detalle, mapa, estadísticas, categorías
+│       └── components/      # mapa, tablas, UI
+├── supabase/
+│   ├── migrations/          # esquema, urgencia y mapa, modo humano, RLS, moderación, vecinos y evidencia
+│   └── seed.sql             # datos iniciales
+└── start.ps1                # arranque rápido en Windows
 ```
 
 ---
 
-## Multi-tenant
+## 🔐 Seguridad
 
-El sistema está diseñado para soportar múltiples municipalidades. Actualmente corre con un tenant fijo (`DEFAULT_TENANT_ID`), pero agregar una segunda municipalidad solo requiere:
-
-1. Insertar una fila en `tenants`
-2. Crear sus categorías en `categories`
-3. Asignarle su número de Twilio en `tenants.whatsapp_number`
-4. Crear sus admins en `admin_users`
-
-No requiere cambios de código ni de esquema.
+- **Firma de Twilio verificada** (HMAC) en cada webhook: nadie puede inyectar mensajes falsos.
+- **Rate limiting** en la API.
+- Panel protegido con **JWT**, y contraseñas con **bcrypt**.
+- **Row Level Security** en la base y fotos en un **bucket privado** con URLs firmadas.
+- El **DNI no se envía al modelo de IA** ni se repite en el chat.
+- Las reglas críticas (identidad, foto, ubicación, categoría válida) se **validan en el código**, no solo en el prompt.
+- Variables de entorno validadas con Zod al iniciar.
 
 ---
 
-## Limitaciones del entorno de desarrollo
+## 👤 Autor
 
-| Limitación | Solución en producción |
-|---|---|
-| ngrok genera una URL nueva cada vez que se reinicia | Usar dominio estático de ngrok (pago) o deploy en la nube |
-| Twilio Sandbox requiere código de activación por usuario | Registrar número oficial de WhatsApp Business con Meta |
-| Servidor corre solo en localhost | Deploy en Railway, Render, Fly.io o VPS |
-| No hay HTTPS propio | El hosting en la nube lo provee automáticamente |
+Proyecto integrador de la **Tecnicatura en Desarrollo de Software**, Instituto Superior Villa del Rosario.
+
+**Matías Zampetti**
+
+[![Portfolio](https://img.shields.io/badge/Portfolio-000000?style=flat-square&logo=vercel&logoColor=white)](https://matiaszampetti.vercel.app)
+[![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/MatiasZampetti)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/TU-USUARIO)
+
+---
+
+<p align="center"><sub>Licencia MIT</sub></p>
